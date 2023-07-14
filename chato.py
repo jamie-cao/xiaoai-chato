@@ -154,7 +154,7 @@ class ChatoAI:
                     self.device_id, self._normalize(value)
                 )
             except Exception as e:
-                # print(e)
+                print(e)
                 # do nothing is ok
                 pass
         else:
