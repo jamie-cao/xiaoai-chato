@@ -44,16 +44,16 @@ def parse_cookie_string(cookie_string):
 
 class ChatoAI:
     def __init__(
-            self,
-            use_command=False,
-            verbose=False,
+        self,
+        use_command=False,
+        verbose=False,
     ):
-        with open('config.yml', 'r') as f:
+        with open("config.yml", "r") as f:
             config = yaml.safe_load(f)
-            self.hardware = config['HARDWARE']
-            self.mi_user = config['MI_USER']
-            self.mi_pass = config['MI_PASS']
-            self.chato_api = config['CHATO_API']
+            self.hardware = config["HARDWARE"]
+            self.mi_user = config["MI_USER"]
+            self.mi_pass = config["MI_PASS"]
+            self.chato_api = config["CHATO_API"]
 
         self.mi_token_home = Path.home() / ".mi.token"
         self.cookie_string = ""
@@ -150,7 +150,9 @@ class ChatoAI:
     async def do_tts(self, value):
         if not self.use_command:
             try:
-                await self.mina_service.text_to_speech(self.device_id, self._normalize(value))
+                await self.mina_service.text_to_speech(
+                    self.device_id, self._normalize(value)
+                )
             except Exception as e:
                 # print(e)
                 # do nothing is ok
@@ -165,18 +167,16 @@ class ChatoAI:
         return message
 
     async def chato_chat(self, query, session):
-        payload = {
-            "p": query
-        }
-        response = await session.post(f'{self.chato_api}', json=payload)
+        payload = {"p": query}
+        response = await session.post(f"{self.chato_api}", json=payload)
         return await response.json()
 
     async def get_if_xiaoai_is_playing(self):
         playing_info = await self.mina_service.player_get_status(self.device_id)
         # WTF xiaomi api
         is_playing = (
-                json.loads(playing_info.get("data", {}).get("info", "{}")).get("status", -1)
-                == 1
+            json.loads(playing_info.get("data", {}).get("info", "{}")).get("status", -1)
+            == 1
         )
         return is_playing
 
@@ -187,10 +187,10 @@ class ChatoAI:
             await self.mina_service.player_pause(self.device_id)
 
     async def run_forever(self):
-        print("现在开始向小爱同学提问吧...\n")
         async with ClientSession() as session:
             await self.init_all_data(session)
-            while 1:
+            print("现在开始向小爱同学提问吧！\n")
+            while True:
                 if self.verbose:
                     print(
                         f"Now listening xiaoai new message timestamp: {self.last_timestamp}"
@@ -203,28 +203,29 @@ class ChatoAI:
                     r = await self.get_latest_ask_from_xiaoai()
 
                 new_timestamp, last_record = self.get_last_timestamp_and_record(r)
-                if new_timestamp > self.last_timestamp and int(time.time()) * 1000 - int(new_timestamp) < 5000:
+                if (
+                    new_timestamp > self.last_timestamp
+                    and int(time.time()) * 1000 - int(new_timestamp) < 5000
+                ):
                     self.last_timestamp = new_timestamp
                     query = last_record.get("query", "")
-                    print(f"小爱同学： {query}")
+                    print(f"我的问题：{query}\n")
+                    chato_response_future = self.chato_chat(query, session)
                     # 阻止小爱同学说话
                     await self.stop_if_xiaoai_is_playing()
                     try:
                         print(
-                            "以下是小爱的回答: ",
-                            last_record.get("answers")[0]
-                            .get("tts", {})
-                            .get("text"),
+                            f"小爱的回答：{last_record.get('answers')[0].get('tts', {}).get('text')}\n",
                         )
                     except:
-                        print("小爱没回")
+                        print("小爱没回\n")
 
                     try:
-                        chato_response = await self.chato_chat(query, session)
-                        print(f"chato 正在进行回答 {chato_response}")
+                        chato_response = await chato_response_future
+                        print(f"Chato的回答：{chato_response.get('data').get('content')}\n")
                         await self.do_tts(chato_response.get("data").get("content"))
                     except:
-                        await self.do_tts("chato服务异常")
+                        await self.do_tts("Chato服务异常\n")
                 else:
                     if self.verbose:
                         print("No new xiao ai record")
